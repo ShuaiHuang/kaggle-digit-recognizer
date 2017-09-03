@@ -10,20 +10,21 @@ TEST_FILENAME = 'test.csv'
 def loadMNIST(data_dir):
     trainPath=os.path.join(data_dir,TRAIN_FILENAME)
     testPath=os.path.join(data_dir,TEST_FILENAME)
+    print trainPath, testPath
     if (not os.path.exists(trainPath)) or (not os.path.exists(testPath)):
         print "%s or %s not exists in the directory %s"%(TRAIN_FILENAME, TEST_FILENAME, data_dir)
         return None
 
-    trainDataset=tf.contrib.data.Dataset.from_tensor_slices(trainPath)
+    trainDataset=tf.contrib.data.Dataset.from_tensors([trainPath])
     trainDataset=trainDataset.flat_map(
         lambda filename : (
             tf.contrib.data.TextLineDataset(filename).skip(1)
         )
     )
 
-    testDataset=tf.contrib.data.Dataset.from_tensor_slices(testPath)
-    testDataset=testDataset.flat_map(
-        lambda filename : (
+    testDataset = tf.contrib.data.Dataset.from_tensors([testPath])
+    testDataset = testDataset.flat_map(
+        lambda filename: (
             tf.contrib.data.TextLineDataset(filename).skip(1)
         )
     )
@@ -31,7 +32,7 @@ def loadMNIST(data_dir):
     return trainDataset, testDataset
 
 def main(_):
-    MNIST=loadMNIST(FLAGS.data_dir)
+    trainDataset, testDataset=loadMNIST(FLAGS.data_dir)
 
 if __name__ == '__main__':
     commandLineParser=argparse.ArgumentParser()
