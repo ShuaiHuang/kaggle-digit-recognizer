@@ -6,12 +6,35 @@ import numpy as np
 import tensorflow as tf
 
 FLAGS=None
-TRAIN_FILENAME='train.csv'
+TRAIN_FILENAME='train_split.csv'
+VALIDATION_FILENAME='validation_split.csv'
 TEST_FILENAME='test.csv'
 RESULT_FILENAME='submission.csv'
 MODEL_FILENAME='model'
 
-def writeResult(result, data_dir, result_filename):
+def parse_test_dataset(file_path, item_count):
+    with open(file_path) as csv_file_handler:
+        csv_file_reader = csv.reader(csv_file_handler)
+        next(csv_file_reader)
+        data = np.zeros([item_count, 784])
+        for count, line in enumerate(csv_file_reader):
+            data[count, :] = map(float, line)
+        data = data / 255
+    return data
+
+def parse_train_dataset(file_path, item_count):
+    with open(file_path) as csv_file_handler:
+        csv_file_reader = csv.reader(csv_file_handler)
+        next(csv_file_reader)
+        data = np.zeros([item_count, 784], dtype=np.float)
+        label = np.zeros([item_count, 10], dtype=np.float)
+        for count, line in enumerate(csv_file_reader):
+            data[count, :] = map(float, line[1:])
+            label[count, int(line[0])] = 1.0
+        data = data / 255
+    return data, label
+
+def write_result(result, data_dir, result_filename):
     result_path = os.path.join(data_dir, result_filename)
     csvfile = open(result_path, 'w')
     writer = csv.writer(csvfile)
@@ -23,44 +46,12 @@ def writeResult(result, data_dir, result_filename):
     writer.writerows(data)
     csvfile.close()
 
-def loadTestDataItems(data_dir, test_filename):
-    test_path = os.path.join(data_dir, test_filename)
-    csvfile = open(test_path, 'r')
-    reader = csv.reader(csvfile)
-    test_data = np.zeros([28000, 784], dtype=np.float)
-    for count, line in enumerate(reader):
-        if count == 0:
-            continue
-        else:
-            line = map(float, line)
-            test_data[count-1, :] = line
-    csvfile.close()
-    print 'Parse test data done!'
-    return test_data / 255.0
-
-def loadTrainDataItems(data_dir, train_filename):
-    train_path = os.path.join(data_dir, train_filename)
-    csvfile = open(train_path)
-    reader = csv.reader(csvfile)
-    train_data = np.zeros([42000, 784], dtype=np.float)
-    train_label = np.zeros([42000, 10], dtype=np.float)
-    for count, line in enumerate(reader):
-        if count == 0:
-            continue
-        else:
-            line = map(float, line)
-            train_data[count-1, :] = line[1:]
-            train_label[count-1, int(line[0])] = 1.0
-    csvfile.close()
-    print 'Parse train data done!'
-    shuffled_index = np.random.permutation(42000)
-    train_data = train_data / 255.0
-    return train_data[shuffled_index[:41000]], train_label[shuffled_index[:41000]], train_data[shuffled_index[41000:]], train_label[shuffled_index[41000:]]
-
 def main(_):
-    trainData, trainLabel, validationData, validationLabel = loadTrainDataItems(FLAGS.data_dir, TRAIN_FILENAME)
-    testData = loadTestDataItems(FLAGS.data_dir, TEST_FILENAME)
+    train_data, train_label = parse_train_dataset(os.path.join(FLAGS.data_dir, TRAIN_FILENAME), 41501)
+    validation_data, validation_label = parse_train_dataset(os.path.join(FLAGS.data_dir, VALIDATION_FILENAME), 499)
+    test_data = parse_test_dataset(os.path.join(FLAGS.data_dir, TEST_FILENAME), 28000)
 
+    # construct network
     x = tf.placeholder('float', shape=[None, 784], name='raw_data')
     y_ = tf.placeholder('float', shape=[None, 10], name='label')
     inputs = tf.reshape(x, shape=[-1, 28, 28, 1], name='input_data')
@@ -109,20 +100,23 @@ def main(_):
 
     predict_op = tf.argmax(outputs, axis=1)
 
+    # train and test
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-
-        for count in range(10000):
-            sampled_index = np.random.permutation(trainData.shape[0])[:100]
-            sess.run(train_op, feed_dict={x:trainData[sampled_index], y_:trainLabel[sampled_index]})
+        for count in range(14001):
+            batch_index = np.random.permutation(28000)[:100]
+            train_data_batch = train_data[batch_index, :]
+            train_label_batch = train_label[batch_index, :]
+            sess.run(train_op, feed_dict={x:train_data_batch, y_:train_label_batch})
             if count%50 == 0:
-                print "step=%d, accuracy=%f"%(count, sess.run(accuracy, feed_dict={x:validationData, y_:validationLabel}))
+                print "step=%d, accuracy=%f"%(count, sess.run(accuracy, feed_dict={x:validation_data, y_:validation_label}))
+
 
         saver = tf.train.Saver()
         saver.save(sess, os.path.join(FLAGS.model_dir, MODEL_FILENAME))
 
-        prediction = sess.run(predict_op, feed_dict={x:testData})
-        writeResult(prediction, FLAGS.data_dir, RESULT_FILENAME)
+        prediction = sess.run(predict_op, feed_dict={x:test_data})
+        write_result(prediction, FLAGS.data_dir, RESULT_FILENAME)
 
 
 if __name__ == '__main__':
