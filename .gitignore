@@ -102,4 +102,3 @@ ENV/
 
 # TensorFlow model file
 model/
-data/
