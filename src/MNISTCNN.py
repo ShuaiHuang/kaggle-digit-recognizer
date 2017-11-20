@@ -82,7 +82,7 @@ def main(_):
     # train and test
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for count in range(35001):
+        for count in range(37001):
             batch_index = np.random.permutation(190000)[:100]
             train_data_batch = train_data[batch_index, :]
             train_label_batch = train_label[batch_index, :]
@@ -90,8 +90,14 @@ def main(_):
             if count%50 == 0:
                 print "step=%d, accuracy=%f"%(count, sess.run(accuracy, feed_dict={x:validation_data, y_:validation_label}))
 
-        prediction = sess.run(predict_op, feed_dict={x:test_data})
-        write_result(prediction, FLAGS.data_dir, RESULT_FILENAME)
+        result = np.zeros([test_data.shape[0] / 5], dtype=np.int8)
+        for count in range(test_data.shape[0] / 5):
+            test_data_batch = test_data[count*5:count*5+5, :]
+            prediction = sess.run(predict_op, feed_dict={x:test_data_batch})
+            numCount = np.bincount(prediction)
+            result[count] = np.argmax(numCount)
+            print result[count]
+        write_result(result, FLAGS.data_dir, RESULT_FILENAME)
 
 
 if __name__ == '__main__':

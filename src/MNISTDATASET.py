@@ -92,8 +92,43 @@ class MNIST_Dataset(object):
     def getValidationData(self, size=38000):
         return self.__train_data[self.__split_index[size:], :], self.__train_label[self.__split_index[size:]]
 
-    def getTestingData(self):
-        return self.__test_data
+    def getTestingData(self, augmented=False):
+        if augmented == False:
+            return self.__test_data
+        else:
+            data = self.__test_data
+            augmentedData = np.zeros((data.shape[0] * 5, data.shape[1]), dtype=np.uint8)
+            for row in range(data.shape[0]):
+                img = data[row, :]
+                img = np.reshape(img, [28, 28])
+                points = cv2.findNonZero(img)
+                rects = cv2.boundingRect(points)
+
+                img_left_top = np.zeros([28, 28], dtype=np.uint8)
+                img_left_top[0:rects[3], 0:rects[2]] = img[rects[1]:rects[1] + rects[3], rects[0]:rects[0] + rects[2]]
+                img_left_top = np.reshape(img_left_top, [1, -1])
+                augmentedData[row * 5, :] = img_left_top
+
+                img_left_bottom = np.zeros([28, 28], dtype=np.uint8)
+                img_left_bottom[28 - rects[3]:28, 0:rects[2]] = img[rects[1]:rects[1] + rects[3],
+                                                                rects[0]:rects[0] + rects[2]]
+                img_left_bottom = np.reshape(img_left_bottom, [1, -1])
+                augmentedData[row * 5 + 1, :] = img_left_bottom
+
+                img_right_top = np.zeros([28, 28], dtype=np.uint8)
+                img_right_top[0:rects[3], 28 - rects[2]:28] = img[rects[1]:rects[1] + rects[3],
+                                                              rects[0]:rects[0] + rects[2]]
+                img_right_top = np.reshape(img_right_top, [1, -1])
+                augmentedData[row * 5 + 2, :] = img_right_top
+
+                img_right_bottom = np.zeros([28, 28], dtype=np.uint8)
+                img_right_bottom[28 - rects[3]:28, 28 - rects[2]:28] = img[rects[1]:rects[1] + rects[3],
+                                                                       rects[0]:rects[0] + rects[2]]
+                img_right_bottom = np.reshape(img_right_bottom, [1, -1])
+                augmentedData[row * 5 + 3, :] = img_right_bottom
+
+                augmentedData[row * 5 + 4, :] = np.reshape(img, [1, -1])
+            return augmentedData
 
     def convertLabel2OneHot(self, label):
         oneHot = np.zeros((label.shape[0], 10), dtype=np.float32)
@@ -115,7 +150,7 @@ if __name__ == '__main__':
     validation_data = np.float32(validation_data) / 255.0
     validation_label = dataset.convertLabel2OneHot(validation_label)
 
-    test_data = dataset.getTestingData()
+    test_data = dataset.getTestingData(True)
     test_data = np.float32(test_data) / 255.0
 
     np.save(os.path.join('../data', 'mnist_train_data.npy'), train_data)
