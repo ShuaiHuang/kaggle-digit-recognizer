@@ -35,42 +35,59 @@ def main(_):
     inputs = tf.reshape(x, shape=[-1, 28, 28, 1], name='input_data')
 
     with tf.variable_scope('layer1'):
-        layer1_weights = tf.get_variable('weights', shape=[5, 5, 1, 32],
+        layer1_weights = tf.get_variable('weights', shape=[3, 3, 1, 32],
                                          initializer=tf.truncated_normal_initializer(stddev=0.1))
         layer1_biases = tf.get_variable('biases', shape=[32],
                                         initializer=tf.constant_initializer(0.1))
         layer1 = tf.nn.conv2d(inputs, layer1_weights, strides=[1, 1, 1, 1], padding='SAME') + layer1_biases
         layer1 = tf.nn.relu(layer1)
-        layer1 = tf.nn.max_pool(layer1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
     with tf.variable_scope('layer2'):
-        layer2_weights = tf.get_variable('weights', shape=[5, 5, 32, 64],
+        layer2_weights = tf.get_variable('weights', shape=[3, 3, 32, 32],
                                          initializer=tf.truncated_normal_initializer(stddev=0.1))
-        layer2_biases = tf.get_variable('biases', shape=[64],
+        layer2_biases = tf.get_variable('biases', shape=[32],
                                         initializer=tf.constant_initializer(0.1))
-
         layer2 = tf.nn.conv2d(layer1, layer2_weights, strides=[1, 1, 1, 1], padding='SAME') + layer2_biases
         layer2 = tf.nn.relu(layer2)
         layer2 = tf.nn.max_pool(layer2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
     with tf.variable_scope('layer3'):
-        layer3_weights = tf.get_variable('weights', shape=[7 * 7 * 64, 1024],
+        layer3_weights = tf.get_variable('weights', shape=[3, 3, 32, 64],
                                          initializer=tf.truncated_normal_initializer(stddev=0.1))
-        layer3_biases = tf.get_variable('biases', shape=[1024],
+        layer3_biases = tf.get_variable('biases', shape=[64],
                                         initializer=tf.constant_initializer(0.1))
-        layer3 = tf.reshape(layer2, shape=[-1, 7 * 7 * 64])
-        layer3 = tf.matmul(layer3, layer3_weights) + layer3_biases
-        layer3 = tf.nn.dropout(layer3, 0.8)
+
+        layer3 = tf.nn.conv2d(layer2, layer3_weights, strides=[1, 1, 1, 1], padding='SAME') + layer3_biases
         layer3 = tf.nn.relu(layer3)
 
     with tf.variable_scope('layer4'):
-        layer4_weights = tf.get_variable('weights', shape=[1024, 10],
+        layer4_weights = tf.get_variable('weights', shape=[3, 3, 64, 64],
                                          initializer=tf.truncated_normal_initializer(stddev=0.1))
-        layer4_biases = tf.get_variable('biases', shape=[10],
+        layer4_biases = tf.get_variable('biases', shape=[64],
                                         initializer=tf.constant_initializer(0.1))
-        layer4 = tf.matmul(layer3, layer4_weights) + layer4_biases
 
-    outputs = tf.nn.softmax(layer4)
+        layer4 = tf.nn.conv2d(layer3, layer4_weights, strides=[1, 1, 1, 1], padding='SAME') + layer4_biases
+        layer4 = tf.nn.relu(layer4)
+        layer4 = tf.nn.max_pool(layer4, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+    with tf.variable_scope('layer5'):
+        layer5_weights = tf.get_variable('weights', shape=[7 * 7 * 64, 1024],
+                                         initializer=tf.truncated_normal_initializer(stddev=0.1))
+        layer5_biases = tf.get_variable('biases', shape=[1024],
+                                        initializer=tf.constant_initializer(0.1))
+        layer5 = tf.reshape(layer4, shape=[-1, 7 * 7 * 64])
+        layer5 = tf.matmul(layer5, layer5_weights) + layer5_biases
+        layer5 = tf.nn.dropout(layer5, 0.8)
+        layer5 = tf.nn.relu(layer5)
+
+    with tf.variable_scope('layer6'):
+        layer6_weights = tf.get_variable('weights', shape=[1024, 10],
+                                         initializer=tf.truncated_normal_initializer(stddev=0.1))
+        layer6_biases = tf.get_variable('biases', shape=[10],
+                                        initializer=tf.constant_initializer(0.1))
+        layer6 = tf.matmul(layer5, layer6_weights) + layer6_biases
+
+    outputs = tf.nn.softmax(layer6)
 
     cross_entropy = -tf.reduce_sum(y_ * tf.log(outputs))
     train_op = tf.train.AdamOptimizer(0.0001).minimize(cross_entropy)
@@ -82,7 +99,7 @@ def main(_):
     # train and test
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for count in range(37001):
+        for count in range(25001):
             batch_index = np.random.permutation(190000)[:100]
             train_data_batch = train_data[batch_index, :]
             train_label_batch = train_label[batch_index, :]
