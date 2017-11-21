@@ -50,6 +50,7 @@ def main(_):
         layer2 = tf.nn.conv2d(layer1, layer2_weights, strides=[1, 1, 1, 1], padding='SAME') + layer2_biases
         layer2 = tf.nn.relu(layer2)
         layer2 = tf.nn.max_pool(layer2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+        layer2 = tf.nn.dropout(layer2, 0.7)
 
     with tf.variable_scope('layer3'):
         layer3_weights = tf.get_variable('weights', shape=[3, 3, 32, 64],
@@ -77,7 +78,7 @@ def main(_):
                                         initializer=tf.constant_initializer(0.1))
         layer5 = tf.reshape(layer4, shape=[-1, 7 * 7 * 64])
         layer5 = tf.matmul(layer5, layer5_weights) + layer5_biases
-        layer5 = tf.nn.dropout(layer5, 0.8)
+        layer5 = tf.nn.dropout(layer5, 0.7)
         layer5 = tf.nn.relu(layer5)
 
     with tf.variable_scope('layer6'):
@@ -99,7 +100,7 @@ def main(_):
     # train and test
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for count in range(25001):
+        for count in range(30001):
             batch_index = np.random.permutation(190000)[:100]
             train_data_batch = train_data[batch_index, :]
             train_label_batch = train_label[batch_index, :]
@@ -113,7 +114,6 @@ def main(_):
             prediction = sess.run(predict_op, feed_dict={x:test_data_batch})
             numCount = np.bincount(prediction)
             result[count] = np.argmax(numCount)
-            print result[count]
         write_result(result, FLAGS.data_dir, RESULT_FILENAME)
 
 
