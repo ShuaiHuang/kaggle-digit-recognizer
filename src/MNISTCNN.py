@@ -10,6 +10,8 @@ TRAIN_FILENAME='train.csv'
 TEST_FILENAME='test.csv'
 RESULT_FILENAME='submission.csv'
 
+MODEL_FILENAME='model'
+
 def write_result(result, data_dir, result_filename):
     result_path = os.path.join(data_dir, result_filename)
     csvfile = open(result_path, 'w')
@@ -97,17 +99,26 @@ def main(_):
 
     predict_op = tf.argmax(outputs, axis=1)
 
+    saver = tf.train.Saver()
+    max_accuracy = 0.0
     # train and test
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        for count in range(30001):
-            batch_index = np.random.permutation(190000)[:100]
+        iterations = 40000
+        for count in range(iterations + 1):
+            batch_index = np.random.permutation(190000)[:50]
             train_data_batch = train_data[batch_index, :]
             train_label_batch = train_label[batch_index, :]
             sess.run(train_op, feed_dict={x:train_data_batch, y_:train_label_batch})
+            temp_accuracy = sess.run(accuracy, feed_dict={x:validation_data, y_:validation_label})
             if count%50 == 0:
-                print "step=%d, accuracy=%f"%(count, sess.run(accuracy, feed_dict={x:validation_data, y_:validation_label}))
+                print "step=%d, accuracy=%f"%(count, temp_accuracy)
+            if temp_accuracy > 0.99 and temp_accuracy > max_accuracy:
+                max_accuracy = temp_accuracy
+                saver.save(sess, os.path.join(FLAGS.model_dir, MODEL_FILENAME))
+        print "max_accuracy=%f"%(max_accuracy,)
 
+        saver.restore(sess, os.path.join(FLAGS.model_dir, MODEL_FILENAME))
         result = np.zeros([test_data.shape[0] / 5], dtype=np.int8)
         for count in range(test_data.shape[0] / 5):
             test_data_batch = test_data[count*5:count*5+5, :]
@@ -122,5 +133,8 @@ if __name__ == '__main__':
     commandLineParser.add_argument('--data_dir', type=str,
                                    default='../data',
                                    help='Directory for storing input data')
+    commandLineParser.add_argument('--model_dir', type=str,
+                                   default='../model',
+                                   help='Directory for storing model file')
     FLAGS, unparsed=commandLineParser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
